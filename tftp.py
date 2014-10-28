@@ -84,45 +84,46 @@ def tftp_transfer(fd, hostname, direction):
     pkgLoss_port = 10069
     pkgDup_port = 20069
 
-    #hostname =  socket.gethostbyname(hostname)
-    #server_address = (hostname,pub_port)
-    server_address = (ServURL, pub_port)
+    # hostname =  socket.gethostbyname(hostname)
+    server_address = (hostname,TFTP_PORT)
+    #server_address = (ServURL, pub_port)
     # Open socket interface
     # -----------------------
     # Create socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
+    sock.connect(server_address)
     print 'starting up on %s port %s' % server_address
     # Establish socket connection to server
     
     # sock.connect((ServURL, pub_port))
     # sock.bind(server_address)
     # Create file-descriptor
-    fdFromSock = sock.fileno()
-    select.select(fdFromSock)
+    #fdFromSock = sock.fileno()
+    select.select(fd)
     
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
     # -----------------------
-    #if(direction == TFTP_PUT):
-    #    sock.send(fdFromSock.read())
-    #elif(direction == TFTP_GET):
-    #    sock.recv(BLOCK_SIZE)
+    
+    
+    
+    if(direction == TFTP_PUT):
+        reqPacket = make_send_wrq(fd)
+           
+    elif(direction == TFTP_GET):
+        reqPacket = make_send_rrq(fd, MODE_OCTET) 
+        
+    sock.sendall(reqPacket)    
+        
     # Put or get the file, block by block, in a loop.
     # -----------------------
+    
+    
+    
     while True:
-        if(direction == TFTP_PUT):
-            print '\n awaiting to write message'
-            chunk = fd.read(65536)
-            if not chunk:
-                break  # EOF
-            print 'sending data...' 
-            sock.sendto(chunk, server_address)
-        elif(direction == TFTP_GET):
-            print '\n waiting to receive message'
-            data, address = sock.recvfrom(65536)
-            print '\n recieved "%s"' %data
-            
+        print '\n awaiting packet ack'
+        data = sock.recv(BLOCK_SIZE)
+        print '\n data received: %s' %data
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new message to server.
         # Don't forget to deal with timeouts.
