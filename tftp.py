@@ -86,25 +86,24 @@ def tftp_transfer(fd, hostname, direction):
     pkgLoss_port = 10069
     pkgDup_port = 20069
     
-    client_port = randint(1024,49150)#1024 through 49151 
-
+    #client_port = randint(1024,49150)#1024 through 49151 
     # hostname =  socket.gethostbyname(hostname)
     server_address = (hostname,TFTP_PORT)
-    client_address = (socket.getfqdn(),client_port)
+    #client_address = (gethostname(),client_port)
     #server_address = (ServURL, pub_port)
     # Open socket interface
     # -----------------------
     # Create socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(client_address)
-    sock.connect(server_address)
+    client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    #client_sock.bind(client_address)
+    #client_sock.connect(server_address)# don't need connect for udp (i think). For C, if do sock.connect, then can send udp packets with sock.send
     print 'starting up on %s port %s' % server_address
     # Establish socket connection to server
     
-    # sock.connect((ServURL, pub_port))
-    # sock.bind(server_address)
+    # client_sock.connect((ServURL, pub_port))
+    # client_sock.bind(server_address)
     # Create file-descriptor
-    #fdFromSock = sock.fileno()
+    #fdFromSock = client_sock.fileno()
     select.select(fd)
     
     # Check if we are putting a file or getting a file and send
@@ -119,7 +118,7 @@ def tftp_transfer(fd, hostname, direction):
     elif(direction == TFTP_GET):
         reqPacket = make_send_rrq(fd, MODE_OCTET) 
         
-    sock.sendall(reqPacket)    
+    client_sock.sendall(reqPacket)    
         
     # Put or get the file, block by block, in a loop.
     # -----------------------
@@ -128,7 +127,7 @@ def tftp_transfer(fd, hostname, direction):
     
     while True:
         print '\n awaiting packet ack'
-        data = sock.recv(BLOCK_SIZE)
+        data = client_sock.recv(BLOCK_SIZE)
         print '\n data received: %s' %data
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new message to server.
