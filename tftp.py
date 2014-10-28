@@ -1,6 +1,8 @@
 #! /usr/bin/python
 
 import sys,socket,struct,select
+from socket import getfqdn
+from random import randint
 
 BLOCK_SIZE= 512
 
@@ -38,10 +40,10 @@ def make_send_rrq(filename, mode):
     return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
 
 def make_send_wrq(filename):
-    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' # TODO
+    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + MODE_OCTET + '\0' # TODO
 
 def make_send_data(blocknr, data):
-    return struct.pack("!H", OPCODE_DATA) + data + '\0' # TODO
+    return struct.pack("!H", OPCODE_DATA) + struct.pack("!H", blocknr) + data # TODO
 
 def make_send_ack(blocknr):
     return struct.pack("!H",OPCODE_ACK) + '\0' # TODO
@@ -71,7 +73,7 @@ def tftp_transfer(fd, hostname, direction):
     
     #Server address provided
     # -----------------------
-    ServURL = "joshua.it.uu.se"
+    #ServURL = "joshua.it.uu.se"
     
     #Ports provided
     # -----------------------
@@ -83,14 +85,18 @@ def tftp_transfer(fd, hostname, direction):
     uni_port = 69
     pkgLoss_port = 10069
     pkgDup_port = 20069
+    
+    client_port = randint(1024,49150)#1024 through 49151 
 
     # hostname =  socket.gethostbyname(hostname)
     server_address = (hostname,TFTP_PORT)
+    client_address = (socket.getfqdn(),client_port)
     #server_address = (ServURL, pub_port)
     # Open socket interface
     # -----------------------
     # Create socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(client_address)
     sock.connect(server_address)
     print 'starting up on %s port %s' % server_address
     # Establish socket connection to server
