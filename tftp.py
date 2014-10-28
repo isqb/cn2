@@ -38,16 +38,16 @@ def make_send_rrq(filename, mode):
     return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
 
 def make_send_wrq(filename):
-    return "" # TODO
+    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' # TODO
 
 def make_send_data(blocknr, data):
-    return "" # TODO
+    return struct.pack("!H", OPCODE_DATA) + data + '\0' # TODO
 
 def make_send_ack(blocknr):
-    return "" # TODO
+    return struct.pack("!H",OPCODE_ACK) + '\0' # TODO
 
 def make_send_err(errcode, errmsg):
-    return "" # TODO
+    return struct.pack("!H",OPCODE_ERR) + errmsg + '\0' # TODO
 
 def parse_message(msg):
     """This function parses a recieved message and returns a tuple where the
@@ -67,14 +67,62 @@ def parse_message(msg):
 
 def tftp_transfer(fd, hostname, direction):
     # Implement this function
+    # -----------------------
     
+    #Server address provided
+    # -----------------------
+    ServURL = "joshua.it.uu.se"
+    
+    #Ports provided
+    # -----------------------
+    #69 - The standard port, reserved for TFTP. Only accessible inside the university network.
+    #6969 - Same as 69 but accessible outside the university network as well.
+    #10069 - Generates packet loss, you need to send a large enough file to get some packet loss. (Accessible both inside and outside the university network)
+    #20069 - Generates duplicates, you need to send a large enough file to get duplicates. (Accessible both inside and outside the university network)
+    pub_port = 6969
+    uni_port = 69
+    pkgLoss_port = 10069
+    pkgDup_port = 20069
+
+    #hostname =  socket.gethostbyname(hostname)
+    #server_address = (hostname,pub_port)
+    server_address = (ServURL, pub_port)
     # Open socket interface
+    # -----------------------
+    # Create socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    print 'starting up on %s port %s' % server_address
+    # Establish socket connection to server
+    
+    # sock.connect((ServURL, pub_port))
+    # sock.bind(server_address)
+    # Create file-descriptor
+    fdFromSock = sock.fileno()
+    select.select(fdFromSock)
     
     # Check if we are putting a file or getting a file and send
     #  the corresponding request.
-    
+    # -----------------------
+    #if(direction == TFTP_PUT):
+    #    sock.send(fdFromSock.read())
+    #elif(direction == TFTP_GET):
+    #    sock.recv(BLOCK_SIZE)
     # Put or get the file, block by block, in a loop.
+    # -----------------------
     while True:
+        if(direction == TFTP_PUT):
+            print '\n awaiting to write message'
+            chunk = fd.read(65536)
+            if not chunk:
+                break  # EOF
+            print 'sending data...' 
+            sock.sendto(chunk, server_address)
+        elif(direction == TFTP_GET):
+            print '\n waiting to receive message'
+            data, address = sock.recvfrom(65536)
+            print '\n recieved "%s"' %data
+            
         # Wait for packet, write the data to the filedescriptor or
         # read the next block from the file. Send new message to server.
         # Don't forget to deal with timeouts.
