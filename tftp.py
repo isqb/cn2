@@ -37,8 +37,8 @@ TFTP_PUT = 2
 
 def make_send_rrq(filename, mode):
     # Note the exclamation mark in the format string to pack(). What is it for?
-    return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
-
+    return struct.pack("!H", OPCODE_RRQ) + "small.txt" + '\0' + mode + '\0'
+    # ^ wrong, I changed
 def make_send_wrq(filename):
     return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + MODE_OCTET + '\0' # TODO
 
@@ -85,37 +85,55 @@ def tftp_transfer(fd, hostname, direction):
     uni_port = 69
     pkgLoss_port = 10069
     pkgDup_port = 20069
+    servURL = "joshua.it.uu.se"
     
     ## Open socket interface
-    
-    servURL = "joshua.it.uu.se"
+    #build/bind socket
     server_address = socket.getaddrinfo(servURL, uni_port)[0][4:][0]
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_address = client_sock.getsockname()
-    print 'starting client_sock on {} port {}'.format(client_address[:1],client_address[1:])
+    client_sock.bind(("130.243.130.27",58450))
 
     ## Check if we are putting a file or getting a file and send
     ##  the corresponding request.
     
     if(direction == TFTP_PUT):
+        print ("write request packet")
         reqPacket = make_send_wrq(fd)
     elif(direction == TFTP_GET):
+        print("read request packet")
         reqPacket = make_send_rrq(fd, MODE_OCTET) 
         
     client_sock.sendto(reqPacket,server_address)    
         
     ## Put or get the file, block by block, in a loop.
-    # -----------------------
-    
-    
+    count = 1 #either we receive data(1), or we send data(1)
     
     while True:
-        ## Wait for packet, write the data to the filedescriptor or
-        ## read the next block from the file. Send new message to server.
+        print("------ waiting for packet [{}] --------".format(count))
+        data,server_address = client_sock.recvfrom(1024)
+        print("GOT HERE1")
+        opcode, seq = struct.unpack("!HH",data[:4])
+        ##(GET) Wait for packet, write the data to the filedescriptor or
+        if (opcode == 3) and (count == seq):
+            msg = data[4:]
+            size = len(msg)
+            print("opcode: {} seq: {} count: {}".format(opcode, seq,count))
+            print ("size: {}".format(size))
+            print ("writing message [{}]".format(count))
+            #send ACK, update count
+            ackpacket = struct.pack("!HH", 4,count)
+            count = count + 1
+            fd.write(msg)
+            client_sock.sendto(ackpacket,server_address)
+        if (size < 512):
+            break
+        print("got here 2")
+        ##(PUT) read the next block from the file. Send new message to server.
         ## Don't forget to deal with timeouts.
-        pass
-
-
+        #    ^ for this we will have to implement select and change our code.
+    client_sock.close()
+    os.system("pause")
+    
 def usage():
     """Print the usage on stderr and quit with error code"""
     sys.stderr.write("Usage: %s [-g|-p] FILE HOST\n" % sys.argv[0])

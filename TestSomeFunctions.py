@@ -37,7 +37,7 @@ def testread():
         data, server_address = client_sock.recvfrom(1024)
         opcode, seq = struct.unpack("!HH",data[:4])
         msg = data[4:]
-        size = len(msg) #<--- too large
+        size = len(msg)
         print("opcode: {} seq: {} count: {}".format(opcode, seq,count))
         print ("size: {}".format(size))
         
