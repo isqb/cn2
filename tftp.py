@@ -68,12 +68,12 @@ def parse_message(msg):
     return None
 
 def tftp_transfer(fd, hostname, direction):
-    # Implement this function
+    ## Implement this function
     # -----------------------
     
     #Server address provided
     # -----------------------
-    #ServURL = "joshua.it.uu.se"
+    
     
     #Ports provided
     # -----------------------
@@ -86,52 +86,33 @@ def tftp_transfer(fd, hostname, direction):
     pkgLoss_port = 10069
     pkgDup_port = 20069
     
-    #client_port = randint(1024,49150)#1024 through 49151 
-    # hostname =  socket.gethostbyname(hostname)
-    server_address = (hostname,TFTP_PORT)
-    #client_address = (gethostname(),client_port)
-    #server_address = (ServURL, pub_port)
-    # Open socket interface
-    # -----------------------
-    # Create socket
+    ## Open socket interface
+    
+    servURL = "joshua.it.uu.se"
+    server_address = socket.getaddrinfo(servURL, uni_port)[0][4:][0]
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    #client_sock.bind(client_address)
-    #client_sock.connect(server_address)# don't need connect for udp (i think). For C, if do sock.connect, then can send udp packets with sock.send
-    print 'starting up on %s port %s' % server_address
-    # Establish socket connection to server
-    
-    # client_sock.connect((ServURL, pub_port))
-    # client_sock.bind(server_address)
-    # Create file-descriptor
-    #fdFromSock = client_sock.fileno()
-    select.select(fd)
-    
-    # Check if we are putting a file or getting a file and send
-    #  the corresponding request.
-    # -----------------------
-    
-    
+    client_address = client_sock.getsockname()
+    print 'starting client_sock on {} port {}'.format(client_address[:1],client_address[1:])
+
+    ## Check if we are putting a file or getting a file and send
+    ##  the corresponding request.
     
     if(direction == TFTP_PUT):
         reqPacket = make_send_wrq(fd)
-           
     elif(direction == TFTP_GET):
         reqPacket = make_send_rrq(fd, MODE_OCTET) 
         
-    client_sock.sendall(reqPacket)    
+    client_sock.sendto(reqPacket,server_address)    
         
-    # Put or get the file, block by block, in a loop.
+    ## Put or get the file, block by block, in a loop.
     # -----------------------
     
     
     
     while True:
-        print '\n awaiting packet ack'
-        data = client_sock.recv(BLOCK_SIZE)
-        print '\n data received: %s' %data
-        # Wait for packet, write the data to the filedescriptor or
-        # read the next block from the file. Send new message to server.
-        # Don't forget to deal with timeouts.
+        ## Wait for packet, write the data to the filedescriptor or
+        ## read the next block from the file. Send new message to server.
+        ## Don't forget to deal with timeouts.
         pass
 
 
