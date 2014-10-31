@@ -1,6 +1,8 @@
 #! /usr/bin/python
 
 import sys,socket,struct,select
+from socket import getfqdn
+from random import randint
 
 BLOCK_SIZE= 512
 
@@ -33,26 +35,26 @@ TFTP_GET = 1
 TFTP_PUT = 2
 
 
-def make_packet_rrq(filename, mode):
+def make_send_rrq(filename, mode):
     # Note the exclamation mark in the format string to pack(). What is it for?
     return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
+    
+def make_send_wrq(filename):
+    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + MODE_OCTET + '\0' # TODO
 
-def make_packet_wrq(filename, mode):
-    return struct.pack("!H", OPCODE_WRQ) + filename + '\0' + MODE_OCTET + '\0' 
+def make_send_data(blocknr, data):
+    return struct.pack("!HH", OPCODE_DATA,blocknr) + data # TODO
 
-def make_packet_data(blocknr, data):
-    return struct.pack("!HH", OPCODE_DATA,blocknr) + data
+def make_send_ack(blocknr):
+    return struct.pack("!H",OPCODE_ACK) + '\0' # TODO
 
-def make_packet_ack(blocknr):
-    return struct.pack("!HH",OPCODE_ACK,blocknr) 
+def make_send_err(errcode, errmsg):
+    return struct.pack("!H",OPCODE_ERR) + errmsg + '\0' # TODO
 
-def make_packet_err(errcode, errmsg):
-    return struct.pack("!H",OPCODE_ERR) + errmsg + '\0'
-
-def parse_packet(msg):
-    """This function parses a recieved packet and returns a tuple where the
+def parse_message(msg):
+    """This function parses a recieved message and returns a tuple where the
         first value is the opcode as an integer and the following values are
-        the other parameters of the packets in python data types"""
+        the other parameters of the messages in python data types"""
     opcode = struct.unpack("!H", msg[:2])[0]
     if opcode == OPCODE_RRQ:
         l = msg[2:].split('\0')
@@ -62,11 +64,11 @@ def parse_packet(msg):
     elif opcode == OPCODE_WRQ:
         # TDOO
         return opcode, # something here
+    # TDOD
     elif (opcode == OPCODE_DATA):
         seq = struct.unpack("!H",msg[2:4])[0]
         block = msg[4:]
         return opcode, seq, block
-    # TODO
     return None
 
 def tftp_transfer(fd, hostname, direction):
@@ -84,22 +86,21 @@ def tftp_transfer(fd, hostname, direction):
     pkgDup_port = 20069
     servURL = "joshua.it.uu.se"
     
-    #### PRGRM WITH THESE ####
-    sendtoport = pub_port
-    
     ## Open socket interface
-    #build socket
-    server_address = socket.getaddrinfo(servURL, sendtoport)[0][4:][0]
+    #build/bind socket
+    server_address = socket.getaddrinfo(servURL, pub_port)[0][4:][0]
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_sock.bind(("130.238.251.160",58450))
 
     ## Check if we are putting a file or getting a file and send
-    ##  the corresponding request. 
+    ##  the corresponding request.
+    
     if(direction == TFTP_PUT):
         print ("write request packet")
-        reqPacket = make_packet_wrq(fd)
+        reqPacket = make_send_wrq(fd)
     elif(direction == TFTP_GET):
         print("read request packet")
-        reqPacket = make_packet_rrq(fd.name, MODE_OCTET) 
+        reqPacket = make_send_rrq(fd.name, MODE_OCTET) 
         
     client_sock.sendto(reqPacket,server_address)    
         
@@ -109,9 +110,7 @@ def tftp_transfer(fd, hostname, direction):
     while True:
         print("------ waiting for packet [{}] --------".format(count))
         data,server_address = client_sock.recvfrom(1024)
-        parsed = parse_packet(data)
-        #print("data: {}".format(data))
-        #print("parsed: {}".format(parsed))
+        parsed = parse_message(data)
         opcode = parsed[0]
         ##(GET) Wait for packet, write the data to the filedescriptor or
         if (opcode == OPCODE_DATA):
@@ -129,9 +128,7 @@ def tftp_transfer(fd, hostname, direction):
         ## Don't forget to deal with timeouts.
         #    ^ for this we will have to implement select and change our code.
     client_sock.close()
-    print("done")
-
-
+    
 def usage():
     """Print the usage on stderr and quit with error code"""
     sys.stderr.write("Usage: %s [-g|-p] FILE HOST\n" % sys.argv[0])
