@@ -66,6 +66,13 @@ def parse_packet(msg):
         seq = struct.unpack("!H",msg[2:4])[0]
         block = msg[4:]
         return opcode, seq, block
+    elif (opcode == OPCODE_ACK):
+        blocknr = msg[2:]
+        return opcode,blocknr
+    elif(opcode == OPCODE_ERR):
+        errcode = msg[2:4]
+        errmsg = msg[4:].split('\0')
+        # TO DO --->if ()
     # TODO
     return None
 
@@ -104,10 +111,10 @@ def tftp_transfer(fd, hostname, direction):
     client_sock.sendto(reqPacket,server_address)    
         
     ## Put or get the file, block by block, in a loop.
-    count = 1 #either we receive data(1), or we send data(1)
+    blocknr = 1 #either we receive data(1), or we send data(1)
     
     while True:
-        print("------ waiting for packet [{}] --------".format(count))
+        print("------ waiting for packet [{}] --------".format(blocknr))
         data,server_address = client_sock.recvfrom(1024)
         parsed = parse_packet(data)
         #print("data: {}".format(data))
@@ -117,14 +124,15 @@ def tftp_transfer(fd, hostname, direction):
         if (opcode == OPCODE_DATA):
             opcode,seq,msg = parsed
             size = len(msg)
-            if (count == seq):
+            if (blocknr == seq):
                 #send ACK, update count
-                ackpacket = struct.pack("!HH", 4,count)
-                count = count + 1
+                ackpacket = make_packet_ack(blocknr)
+                blocknr = blocknr + 1
                 fd.write(msg)
                 client_sock.sendto(ackpacket,server_address)
             if (size < 512):
                 break
+        if (opcode == OPCODE_ACK):
         ##(PUT) read the next block from the file. Send new message to server.
         ## Don't forget to deal with timeouts.
         #    ^ for this we will have to implement select and change our code.
