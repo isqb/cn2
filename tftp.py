@@ -60,20 +60,24 @@ def parse_packet(msg):
             return None
         return opcode, l[1], l[2]
     elif opcode == OPCODE_WRQ:
-        # TDOO
-        return opcode, # something here
+        l = msg[2:].split('\0')
+        if len(l) != 3:
+            return None
+        return opcode, l[1], l[2]
     elif (opcode == OPCODE_DATA):
         seq = struct.unpack("!H",msg[2:4])[0]
-        block = msg[4:]
-        return opcode, seq, block
+        data = msg[4:]
+        return opcode, seq, data
     elif (opcode == OPCODE_ACK):
-        blocknr = msg[2:]
-        return opcode,blocknr
+        blocknr = struct.unpack("!H", msg[2:4])[0]
+        data = ""
+        return opcode,blocknr,msg
     elif(opcode == OPCODE_ERR):
-        errcode = msg[2:4]
-        errmsg = msg[4:].split('\0')
-        # TO DO --->if ()
-    # TODO
+        errcode = struct.unpack("!H",msg[2:4])[0]
+        l = msg[4:].split('\0')
+        if len(l) != 2:
+            return None
+        return opcode, errcode, l[1]
     return None
 
 def tftp_transfer(fd, hostname, direction):
@@ -97,43 +101,72 @@ def tftp_transfer(fd, hostname, direction):
     ## Open socket interface
     #build socket
     server_address = socket.getaddrinfo(servURL, sendtoport)[0][4:][0]
+    print("serveradress: {} {}".format(server_address[0], server_address[1]))
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     ## Check if we are putting a file or getting a file and send
     ##  the corresponding request. 
     if(direction == TFTP_PUT):
         print ("write request packet")
-        reqPacket = make_packet_wrq(fd)
+        data = fd.read(512)
+        reqPacket = make_packet_wrq(fd.name, MODE_OCTET)
+        count = 0 
     elif(direction == TFTP_GET):
         print("read request packet")
-        reqPacket = make_packet_rrq(fd.name, MODE_OCTET) 
+        reqPacket = make_packet_rrq(fd.name, MODE_OCTET)
+        count = 1 #either we receive data(1), or we send data(1) 
         
     client_sock.sendto(reqPacket,server_address)    
         
     ## Put or get the file, block by block, in a loop.
-    blocknr = 1 #either we receive data(1), or we send data(1)
     
+    updated = False
     while True:
-        print("------ waiting for packet [{}] --------".format(blocknr))
-        data,server_address = client_sock.recvfrom(1024)
-        parsed = parse_packet(data)
-        #print("data: {}".format(data))
+        print("------ waiting for packet [{}] --------".format(count))
+        packet,packet_address = client_sock.recvfrom(1024)
+        opcode, blocknr, data = parse_packet(packet)
+        #print("opcode: {} blocknr:{} data: {}".format(opcode, blocknr, data))
+        
+        if updated == False:
+            updated = True
+            server_address = packet_address
+            print("SAchanged: {} {}".format(server_address[0], server_address[1]))
+        
+        # check if packet is being sent from correct destination
+        # send errpacket to packet src if wrong packet
+        if packet_address != server_address:
+            errpacket = make_packet_err(5, "Invalid Destination")
+            client_sock.sendto(errpacket,packet_address)
+            opcode = 0 #<-- will cause to skip rest of code
+
         #print("parsed: {}".format(parsed))
-        opcode = parsed[0]
         ##(GET) Wait for packet, write the data to the filedescriptor or
-        if (opcode == OPCODE_DATA):
-            opcode,seq,msg = parsed
-            size = len(msg)
-            if (blocknr == seq):
+        if (opcode == OPCODE_ERR):
+            print ("err: \n{} \n{} \n{}".format(opcode,ERROR_CODES[blocknr],data))
+            break
+        elif (opcode == OPCODE_DATA):
+            size = len(data)
+            if (count == blocknr):
                 #send ACK, update count
-                ackpacket = make_packet_ack(blocknr)
-                blocknr = blocknr + 1
-                fd.write(msg)
+                ackpacket = make_packet_ack(count)
+                count = count + 1
+                fd.write(data)
                 client_sock.sendto(ackpacket,server_address)
-            if (size < 512):
+            if (size < 512): #need to wait in case duplicate of previous packet sent. Might get solved by select()
                 break
-        if (opcode == OPCODE_ACK):
+        
         ##(PUT) read the next block from the file. Send new message to server.
+        elif (opcode == OPCODE_ACK):
+            print("count: {} blocknr: {}".format(count,blocknr))
+            if count == blocknr:
+                count = count + 1
+                data = fd.read(512) #todo: check if actually 512
+                size = len(data)
+                datapacket = make_packet_data(count, data)
+                client_sock.sendto(datapacket,server_address)
+                if size < 512:
+                    break # need to wait for final ack
+                
         ## Don't forget to deal with timeouts.
         #    ^ for this we will have to implement select and change our code.
     client_sock.close()

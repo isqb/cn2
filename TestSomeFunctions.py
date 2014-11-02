@@ -19,20 +19,25 @@ def testHostName():
     print(myIP)
 
 def testread():
+    # choose a file
+    #filename = "small.txt"
+    #filename = "medium.pdf"
+    filename = "large.jpeg"
+    
     #build/bind socket
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     #client_sock.bind((client_addresss))
     
     #create/send data to server
     server_address = socket.getaddrinfo("joshua.it.uu.se", 6969)[0][4:][0]
-    data = struct.pack("!H", 1) + "medium.pdf" + '\0' + "octet" + '\0'
+    data = struct.pack("!H", 1) + filename + '\0' + "octet" + '\0'
     client_sock.sendto(data,server_address)
     client_address = client_sock.getsockname()
     print("myip: {} myport: {}".format(client_address[0],client_address[1]))
     count = 1 #first data pack seq=1
     
     #write data to file (in a loop)
-    fd = open('writetothisfile.txt', 'wb')
+    fd = open(filename, 'wb')
     print("fd: {}".format(fd))
     while True:
         print("------ waiting for packet [{}] --------".format(count))
@@ -68,9 +73,15 @@ def testwrite():
     data = struct.pack("!H", 2) + "somefile.txt" + '\0' + "octet" + '\0'
     server_address = socket.getaddrinfo("joshua.it.uu.se", 6969)[0][4:][0]
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    fd = open('C:\Users\Rsandhu\Desktop\writetothisfile.txt', 'rb')
+    print("fd: {}".format(fd.read(512)))
+    print("fd: {}".format(fd.read(512)))
+    return
+    
+    
+    
     #client_sock.connect(server_address)
     print("server_adrdress: {}".format(server_address))
-    client_sock.bind(("130.243.130.27",58449))
     client_sock.sendto(data,server_address)
     client_address = client_sock.getsockname()
     print 'starting client_sock on {} port {}'.format(client_address[:1],client_address[1:])
@@ -122,6 +133,6 @@ def parse_message(msg):
 
 if __name__ == '__main__':
     
-    testread()
-    #testwrite()
+    #testread()
+    testwrite()
     #testHostName()
