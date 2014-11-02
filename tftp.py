@@ -108,7 +108,6 @@ def tftp_transfer(fd, hostname, direction):
     ##  the corresponding request. 
     if(direction == TFTP_PUT):
         print ("write request packet")
-        data = fd.read(512)
         reqPacket = make_packet_wrq(fd.name, MODE_OCTET)
         count = 0 
     elif(direction == TFTP_GET):
@@ -119,7 +118,7 @@ def tftp_transfer(fd, hostname, direction):
     client_sock.sendto(reqPacket,server_address)    
         
     ## Put or get the file, block by block, in a loop.
-    
+    totaldata = ""
     updated = False
     while True:
         print("------ waiting for packet [{}] --------".format(count))
@@ -161,6 +160,7 @@ def tftp_transfer(fd, hostname, direction):
             if count == blocknr:
                 count = count + 1
                 data = fd.read(512) #todo: check if actually 512
+                totaldata = totaldata+data
                 size = len(data)
                 datapacket = make_packet_data(count, data)
                 client_sock.sendto(datapacket,server_address)
@@ -171,6 +171,7 @@ def tftp_transfer(fd, hostname, direction):
         #    ^ for this we will have to implement select and change our code.
     client_sock.close()
     print("done")
+    
 
 
 def usage():
