@@ -77,7 +77,7 @@ def parse_packet(msg):
         l = msg[4:].split('\0')
         if len(l) != 2:
             return None
-        return opcode, errcode, l[1]
+        return opcode, errcode, l[0]
     return None
 
 def tftp_transfer(fd, hostname, direction):
