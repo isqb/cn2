@@ -119,6 +119,7 @@ def tftp_transfer(fd, hostname, direction):
     updated = False
     tosendpacket = ""
     client_sock.sendto(reqPacket,server_address)    
+    print("client adress: {}".format(client_sock.getsockname()))
     
     ## Put or get the file, block by block, in a loop.
     while True:
