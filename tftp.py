@@ -115,64 +115,87 @@ def tftp_transfer(fd, hostname, direction):
         reqPacket = make_packet_rrq(fd.name, MODE_OCTET)
         count = 1 #either we receive data(1), or we send data(1) 
         
-    client_sock.sendto(reqPacket,server_address)    
-        
-    ## Put or get the file, block by block, in a loop.
-    totaldata = ""
+    lastpacketsent = False
     updated = False
+    tosendpacket = ""
+    client_sock.sendto(reqPacket,server_address)    
+    
+    ## Put or get the file, block by block, in a loop.
     while True:
-        print("------ waiting for packet [{}] --------".format(count))
-        packet,packet_address = client_sock.recvfrom(1024)
-        opcode, blocknr, data = parse_packet(packet)
-        #print("opcode: {} blocknr:{} data: {}".format(opcode, blocknr, data))
+        print("------ waiting for packet [{}]--------".format(count))
+        readable, writable, exceptional = select.select([client_sock],[],[],1)
         
-        if updated == False:
-            updated = True
-            server_address = packet_address
-            print("SAchanged: {} {}".format(server_address[0], server_address[1]))
-        
-        # check if packet is being sent from correct destination
-        # send errpacket to packet src if wrong packet
-        if packet_address != server_address:
-            errpacket = make_packet_err(5, "Invalid Destination")
-            client_sock.sendto(errpacket,packet_address)
-            opcode = 0 #<-- will cause to skip rest of code
+        # received packet
+        if len(readable)> 0:
+            packet,packet_address = client_sock.recvfrom(1024)
+            opcode, blocknr, data = parse_packet(packet)
+            #print("opcode: {} blocknr:{} data: {}".format(opcode, blocknr, data))
+            if updated == False:
+                updated = True
+                server_address = packet_address
+                print("SAchanged: {} {}".format(server_address[0], server_address[1]))
+            
+            # check if packet is being sent from correct destination
+            # send errpacket to packet src if wrong packet. no BREAK.
+            if packet_address != server_address:
+                errpacket = make_packet_err(5, "Invalid Destination")
+                client_sock.sendto(errpacket,packet_address)
+                opcode = 0 #<-- will cause to skip rest of code
 
         #print("parsed: {}".format(parsed))
         ##(GET) Wait for packet, write the data to the filedescriptor or
-        if (opcode == OPCODE_ERR):
-            print ("err: \n{} \n{} \n{}".format(opcode,ERROR_CODES[blocknr],data))
+        
+        # Timeout. Did not receive packet, resend, skips rest of elif's
+        if (len(readable)< 1) and (opcode != 0):
+            if (direction == TFTP_GET) and (lastpacketsent):
+                break
+            print("TIMEOUT. resend count-1: {}".format(count-1))
+            client_sock.sendto(tosendpacket,server_address)
+        elif (blocknr == count-1) and (opcode != 0):
+            print("DUPLICATE resend count-1: {}".format(count-1))
+            client_sock.sendto(tosendpacket,server_address)
+        elif (opcode == OPCODE_ERR):
+            print ("err: opcode: {} errcode: {} errmsg: {}".format(opcode,ERROR_CODES[blocknr],data))
             break
         elif (opcode == OPCODE_DATA):
             size = len(data)
             if (count == blocknr):
                 #send ACK, update count
-                ackpacket = make_packet_ack(count)
+                tosendpacket = make_packet_ack(count)
                 count = count + 1
                 fd.write(data)
-                client_sock.sendto(ackpacket,server_address)
+                client_sock.sendto(tosendpacket,server_address)
             if (size < 512): #need to wait in case duplicate of previous packet sent. Might get solved by select()
-                break
+                lastpacketsent = True
         
         ##(PUT) read the next block from the file. Send new message to server.
         elif (opcode == OPCODE_ACK):
-            print("count: {} blocknr: {}".format(count,blocknr))
             if count == blocknr:
+                if lastpacketsent == True:
+                    break
                 count = count + 1
-                data = fd.read(512) #todo: check if actually 512
-                totaldata = totaldata+data
+                data = fd.read(512)
                 size = len(data)
-                datapacket = make_packet_data(count, data)
-                client_sock.sendto(datapacket,server_address)
+                tosendpacket = make_packet_data(count, data)
+                client_sock.sendto(tosendpacket,server_address)
                 if size < 512:
-                    break # need to wait for final ack
+                    lastpacketsent = True
+                    
+        elif opcode == OPCODE_RRQ:
+            pass
+        elif opcode == OPCODE_WRQ:
+            pass
+        else:
+            # send error packet
+            # break?
+            pass
+        
                 
         ## Don't forget to deal with timeouts.
         #    ^ for this we will have to implement select and change our code.
     client_sock.close()
     print("done")
     
-
 
 def usage():
     """Print the usage on stderr and quit with error code"""

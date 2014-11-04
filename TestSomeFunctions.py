@@ -39,8 +39,12 @@ def testread():
     #write data to file (in a loop)
     fd = open(filename, 'wb')
     print("fd: {}".format(fd))
+    
+    # setup for select)=
+    readlist = [client_sock]
     while True:
         print("------ waiting for packet [{}] --------".format(count))
+        readable, writable, exceptional = select.select(readlist,[],[],10)
         # receive data and server_address
         data, server_address = client_sock.recvfrom(1024)
         parsed = parse_message(data)
@@ -133,6 +137,6 @@ def parse_message(msg):
 
 if __name__ == '__main__':
     
-    #testread()
-    testwrite()
+    testread()
+    #testwrite()
     #testHostName()
