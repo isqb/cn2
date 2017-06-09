@@ -34,7 +34,6 @@ TFTP_PUT = 2
 
 
 def make_packet_rrq(filename, mode):
-    # Note the exclamation mark in the format string to pack(). What is it for?
     return struct.pack("!H", OPCODE_RRQ) + filename + '\0' + mode + '\0'
 
 def make_packet_wrq(filename, mode):
@@ -81,7 +80,6 @@ def parse_packet(msg):
     return None
 
 def tftp_transfer(fd, hostname, direction):
-    ## Implement this function
     
     #Ports provided
     # -----------------------
@@ -94,12 +92,9 @@ def tftp_transfer(fd, hostname, direction):
     pkgLoss_port = 10069
     pkgDup_port = 20069
     servURL = "joshua.it.uu.se"
-    
-    #### PRGRM WITH THESE ####
     sendtoport = pub_port
     
     ## Open socket interface
-    #build socket
     server_address = socket.getaddrinfo(servURL, sendtoport)[0][4:][0]
     print("serveradress: {} {}".format(server_address[0], server_address[1]))
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -189,10 +184,6 @@ def tftp_transfer(fd, hostname, direction):
             # send error packet
             # break?
             pass
-        
-                
-        ## Don't forget to deal with timeouts.
-        #    ^ for this we will have to implement select and change our code.
     client_sock.close()
     print("done")
     
@@ -204,7 +195,6 @@ def usage():
 
 
 def main():
-    # No need to change this function
     direction = TFTP_GET
     if len(sys.argv) == 3:
         filename = sys.argv[1]
